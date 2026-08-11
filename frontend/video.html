@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>YT Transcript Companion — Video</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <input type="text" id="url-input" placeholder="Paste a YouTube URL or video ID..." autofocus>
+    <button id="load-btn">Load Video</button>
+    <button id="open-transcript-btn" disabled>Open Transcript Window &rarr;</button>
+  </div>
+  <div id="banner" class="banner"></div>
+
+  <div id="player-container">
+    <div id="player"></div>
+  </div>
+
+  <script src="/js/youtube-utils.js"></script>
+  <script src="/js/video.js"></script>
+  <!-- YouTube's IFrame Player API loader. It calls window.onYouTubeIframeAPIReady()
+       itself once loaded, so that function must already be defined by the time this
+       finishes - which is why video.js is loaded above, before this script tag. -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>

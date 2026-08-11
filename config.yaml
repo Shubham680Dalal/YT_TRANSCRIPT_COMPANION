@@ -1,0 +1,16 @@
+server:
+  host: "127.0.0.1"
+  port: 8000
+
+transcript:
+  default_language: "en"
+  fallback_languages: ["en-US", "en-GB"]
+
+sync:
+  poll_interval_ms: 300              # how often video.js polls getCurrentTime() to detect seeks
+  seek_jump_threshold_seconds: 1.5   # jump beyond normal playback drift (incl. playback rate) = user seek
+
+logging:
+  level: "INFO"
+  env_var: "LOG_ENV"
+  dev_value: "development"
