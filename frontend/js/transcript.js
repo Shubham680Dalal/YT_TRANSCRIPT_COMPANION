@@ -7,9 +7,52 @@ const bannerEl = document.getElementById("banner");
 const emptyStateEl = document.getElementById("empty-state");
 const listEl = document.getElementById("transcript-list");
 
-let cues = []; // [{text, start, duration}, ...] sorted by start (guaranteed by the API)
+let cues = []; // [{text, start, end}, ...] grouped segments, sorted by start
 let cueElements = [];
 let activeIndex = -1;
+
+// Raw cues are YouTube's individual caption lines (~7-8 words each), which reads as
+// choppy single-line blocks in the UI. Merge consecutive cues into segments so each
+// highlighted block holds a couple lines of text instead of one short fragment.
+const SEGMENT_MIN_WORDS = 14;
+const SEGMENT_MAX_WORDS = 26;
+
+function groupCues(rawCues) {
+  const groups = [];
+  let bucket = [];
+  let wordCount = 0;
+
+  function flush() {
+    if (bucket.length === 0) return;
+    const text = bucket.map((c) => c.text.trim()).join(" ");
+    const last = bucket[bucket.length - 1];
+    groups.push({ text, start: bucket[0].start, end: last.start + last.duration });
+    bucket = [];
+    wordCount = 0;
+  }
+
+  for (const cue of rawCues) {
+    const text = cue.text.trim();
+    if (!text) continue;
+    const words = text.split(/\s+/).length;
+
+    if (bucket.length > 0 && wordCount + words > SEGMENT_MAX_WORDS) {
+      flush();
+    }
+
+    bucket.push(cue);
+    wordCount += words;
+
+    // auto-generated captions rarely carry punctuation, so this only fires for
+    // transcripts that do - otherwise SEGMENT_MAX_WORDS is what caps a segment.
+    if (wordCount >= SEGMENT_MIN_WORDS && /[.!?]$/.test(text)) {
+      flush();
+    }
+  }
+  flush();
+
+  return groups;
+}
 
 function showBanner(message, kind) {
   bannerEl.textContent = message;
@@ -77,7 +120,7 @@ async function loadTranscript(videoId) {
       return;
     }
     const data = await res.json();
-    cues = data.cues;
+    cues = groupCues(data.cues);
     renderCues();
     showEmptyState("Waiting for the video window to start playing...");
   } catch (err) {
