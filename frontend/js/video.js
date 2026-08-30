@@ -15,6 +15,7 @@ let player = null;
 let currentVideoId = null;
 let syncChannel = null;
 let pendingVideoId = null; // set if "Load Video" is clicked before the IFrame API script is ready
+let transcriptWindowRef = null; // tracks the popup so a manual close doesn't strand the button
 
 // Filled in from GET /api/config on page load - see loadSyncConfig() below.
 let POLL_INTERVAL_MS = 300;
@@ -170,7 +171,15 @@ function handleLoadVideo() {
 // window.open() must be called synchronously inside this click handler with no
 // await/async gap before it - some browsers silently block popups opened "late".
 openTranscriptBtn.addEventListener("click", () => {
-  window.open(
+  // If the transcript window is still open, just bring it forward instead of
+  // reusing the "transcriptWindow" target name, which some browsers won't
+  // reliably reopen once the user has manually closed it.
+  if (transcriptWindowRef && !transcriptWindowRef.closed) {
+    transcriptWindowRef.focus();
+    return;
+  }
+
+  transcriptWindowRef = window.open(
     `/transcript.html?video_id=${currentVideoId}`,
     "transcriptWindow",
     "width=900,height=800"
