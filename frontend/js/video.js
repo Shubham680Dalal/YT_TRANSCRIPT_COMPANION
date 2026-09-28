@@ -25,6 +25,87 @@ let pollTimer = null;
 let lastKnownTime = 0;
 let lastPollWallClockMs = performance.now();
 
+// Per-video resume positions live in localStorage (browser-only, survives refresh/restart).
+const RESUME_KEY_PREFIX = "yt-resume-";
+const RESUME_SAVE_INTERVAL_MS = 5000;
+const RESUME_MIN_SECONDS = 5; // don't bother "resuming" at 0:02
+const RESUME_END_MARGIN_SECONDS = 10; // near the end counts as finished -> start fresh next time
+let lastResumeSaveMs = 0;
+
+function getSavedPosition(videoId) {
+  try {
+    const seconds = parseFloat(localStorage.getItem(RESUME_KEY_PREFIX + videoId));
+    return seconds >= RESUME_MIN_SECONDS ? seconds : 0;
+  } catch (err) {
+    return 0;
+  }
+}
+
+function savePosition(videoId, seconds) {
+  if (!videoId || !player || typeof player.getDuration !== "function") return;
+  try {
+    const duration = player.getDuration();
+    if (seconds < RESUME_MIN_SECONDS || (duration > 0 && seconds >= duration - RESUME_END_MARGIN_SECONDS)) {
+      localStorage.removeItem(RESUME_KEY_PREFIX + videoId);
+    } else {
+      localStorage.setItem(RESUME_KEY_PREFIX + videoId, String(Math.floor(seconds)));
+    }
+  } catch (err) {
+    // Storage unavailable (private window, blocked site data) - resume just won't work.
+  }
+}
+
+// Recently loaded videos, most recent first - fed into the input's <datalist> so they
+// show up as autofill suggestions instead of re-copying links from YouTube.
+const RECENT_VIDEOS_KEY = "yt-recent-videos";
+const RECENT_VIDEOS_MAX = 20;
+const recentVideosList = document.getElementById("recent-videos");
+
+function watchUrl(videoId) {
+  return `https://www.youtube.com/watch?v=${videoId}`;
+}
+
+function getRecentVideos() {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_VIDEOS_KEY)) || [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function rememberVideo(videoId, title) {
+  const recent = getRecentVideos();
+  const existing = recent.find((v) => v.id === videoId);
+  const entry = { id: videoId, title: title || (existing && existing.title) || "" };
+  const updated = [entry, ...recent.filter((v) => v.id !== videoId)].slice(0, RECENT_VIDEOS_MAX);
+  try {
+    localStorage.setItem(RECENT_VIDEOS_KEY, JSON.stringify(updated));
+  } catch (err) {
+    // Storage unavailable - suggestions just won't persist.
+  }
+  renderRecentVideos();
+}
+
+function renderRecentVideos() {
+  recentVideosList.innerHTML = "";
+  for (const video of getRecentVideos()) {
+    const option = document.createElement("option");
+    option.value = watchUrl(video.id);
+    const resumeAt = getSavedPosition(video.id);
+    const title = video.title || video.id;
+    option.label = resumeAt > 0 ? `${title} · left off at ${formatTimestamp(resumeAt)}` : title;
+    recentVideosList.appendChild(option);
+  }
+}
+
+function formatTimestamp(totalSeconds) {
+  const s = Math.floor(totalSeconds);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = String(s % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
+}
+
 function showBanner(message, kind) {
   banner.textContent = message;
   banner.className = `banner ${kind}`;
@@ -56,14 +137,20 @@ window.onYouTubeIframeAPIReady = function () {
   }
 };
 
+let resumedFromSeconds = 0; // shown as a banner once the player is ready
+
 function createPlayer(videoId) {
+  resumedFromSeconds = getSavedPosition(videoId);
   if (player) {
     // Reuse the existing embed instead of re-creating the iframe from scratch.
-    player.loadVideoById(videoId);
+    player.loadVideoById(videoId, resumedFromSeconds);
+    showResumeBanner();
+    // onReady only fires once per player, so re-enable here for every later video.
+    openTranscriptBtn.disabled = false;
   } else {
     player = new YT.Player("player", {
       videoId: videoId,
-      playerVars: { rel: 0 },
+      playerVars: { rel: 0, start: Math.floor(resumedFromSeconds) },
       events: {
         onReady: onPlayerReady,
         onStateChange: onPlayerStateChange,
@@ -73,8 +160,16 @@ function createPlayer(videoId) {
   }
 }
 
+function showResumeBanner() {
+  if (resumedFromSeconds > 0) {
+    showBanner(`Resumed at ${formatTimestamp(resumedFromSeconds)} - where you left off.`, "info");
+  } else {
+    clearBanner();
+  }
+}
+
 function onPlayerReady() {
-  clearBanner();
+  showResumeBanner();
   openTranscriptBtn.disabled = false;
   startPolling();
 }
@@ -83,10 +178,15 @@ function onPlayerStateChange(event) {
   // YT.PlayerState: ENDED=0, PLAYING=1, PAUSED=2, BUFFERING=3, CUED=5
   if (event.data === YT.PlayerState.PLAYING) {
     broadcastSync("playing", player.getCurrentTime());
+    // The title is only known once the video starts - store it so suggestions read nicely.
+    const title = player.getVideoData && player.getVideoData().title;
+    if (title) rememberVideo(currentVideoId, title);
   } else if (event.data === YT.PlayerState.PAUSED) {
     broadcastSync("paused", player.getCurrentTime());
+    savePosition(currentVideoId, player.getCurrentTime());
   } else if (event.data === YT.PlayerState.ENDED) {
     broadcastSync("paused", player.getCurrentTime());
+    savePosition(currentVideoId, player.getDuration()); // clears it - finished videos start fresh
   }
   // BUFFERING is deliberately ignored - broadcasting on it just causes transcript flicker.
 }
@@ -138,6 +238,11 @@ function startPolling() {
     // interval, with no separate handshake needed.
     broadcastSync("playing", now);
 
+    if (performance.now() - lastResumeSaveMs >= RESUME_SAVE_INTERVAL_MS) {
+      savePosition(currentVideoId, now);
+      lastResumeSaveMs = performance.now();
+    }
+
     if (actualDelta > expectedDrift + SEEK_JUMP_THRESHOLD_SECONDS) {
       console.debug("Seek detected", { from: lastKnownTime, to: now });
     }
@@ -155,8 +260,20 @@ function handleLoadVideo() {
   }
   clearBanner();
 
+  // Save the outgoing video's spot before switching away from it.
+  if (currentVideoId && player && typeof player.getCurrentTime === "function") {
+    savePosition(currentVideoId, player.getCurrentTime());
+  }
+
   currentVideoId = videoId;
+  rememberVideo(videoId);
+  if (syncChannel) syncChannel.close();
   syncChannel = new BroadcastChannel(`yt-sync-${videoId}`);
+
+  // Put the video in the page URL so a refresh reloads it (and resumes) automatically.
+  const pageUrl = new URL(location.href);
+  pageUrl.searchParams.set("v", videoId);
+  history.replaceState(null, "", pageUrl);
   openTranscriptBtn.disabled = true; // re-enabled in onPlayerReady once the new video loads
 
   if (typeof YT !== "undefined" && YT.Player) {
@@ -191,4 +308,29 @@ urlInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") handleLoadVideo();
 });
 
+// Picking a suggestion from the dropdown loads it straight away - no extra click needed.
+// Browsers report a datalist pick as an input event without a normal typing inputType.
+urlInput.addEventListener("input", (e) => {
+  if (e.inputType && e.inputType !== "insertReplacementText") return;
+  const picked = getRecentVideos().some((v) => watchUrl(v.id) === urlInput.value);
+  if (picked) handleLoadVideo();
+});
+
+// Refresh the "left off at" labels each time the box is focused.
+urlInput.addEventListener("focus", renderRecentVideos);
+renderRecentVideos();
+
+// Refresh / tab close: save the exact spot, not just the last 5s checkpoint.
+window.addEventListener("pagehide", () => {
+  if (currentVideoId && player && typeof player.getCurrentTime === "function") {
+    savePosition(currentVideoId, player.getCurrentTime());
+  }
+});
+
 loadSyncConfig();
+
+const videoFromUrl = new URLSearchParams(location.search).get("v");
+if (videoFromUrl) {
+  urlInput.value = videoFromUrl;
+  handleLoadVideo();
+}

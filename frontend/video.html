@@ -7,7 +7,9 @@
 </head>
 <body>
   <div class="topbar">
-    <input type="text" id="url-input" placeholder="Paste a YouTube URL or video ID..." autofocus>
+    <input type="text" id="url-input" list="recent-videos" autocomplete="off"
+           placeholder="Paste a YouTube URL or video ID, or pick a recent video..." autofocus>
+    <datalist id="recent-videos"></datalist>
     <button id="load-btn">Load Video</button>
     <button id="open-transcript-btn" disabled>Open Transcript Window &rarr;</button>
   </div>
