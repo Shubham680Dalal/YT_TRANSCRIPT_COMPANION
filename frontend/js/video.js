@@ -370,8 +370,9 @@ function runShortcut(action) {
   if (action === "toggle") {
     if (isPlaying) {
       const target = Math.max(0, now - SEEK_STEP_SECONDS);
-      player.seekTo(target, true);
+      // Pause first: a pause issued mid-seek can get lost while the player buffers.
       player.pauseVideo();
+      player.seekTo(target, true);
       broadcastSync("paused", target);
     } else {
       player.playVideo();
@@ -416,6 +417,9 @@ window.addEventListener("blur", () => {
 
 async function loadVideo(videoId) {
   clearBanner();
+  // Leave the link box, otherwise Space / V / B get typed into it instead of
+  // reaching the shortcuts (it has autofocus, so this matters even on refresh).
+  urlInput.blur();
 
   // Save the outgoing video's spot before switching away from it.
   if (currentVideoId && currentVideoId !== videoId) reportProgress("closed");
@@ -481,6 +485,7 @@ openTranscriptBtn.addEventListener("click", () => {
 loadBtn.addEventListener("click", handleLoadVideo);
 urlInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") handleLoadVideo();
+  if (e.key === "Escape") urlInput.blur(); // back to shortcuts without loading anything
 });
 
 // Picking a suggestion from the dropdown loads it straight away - no extra click needed.
@@ -504,4 +509,8 @@ const videoFromUrl = new URLSearchParams(location.search).get("v");
 if (videoFromUrl) {
   urlInput.value = videoFromUrl;
   handleLoadVideo();
+} else {
+  // Only grab the link box when there's nothing loaded - an HTML autofocus attribute
+  // would also steal focus on refresh and swallow the shortcuts.
+  urlInput.focus();
 }

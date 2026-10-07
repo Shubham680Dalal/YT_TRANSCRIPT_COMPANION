@@ -41,6 +41,15 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title="YT Transcript Companion", lifespan=lifespan)
 
+    @app.middleware("http")
+    async def revalidate_frontend_files(request, call_next):
+        # Without this, a normal refresh can keep running a cached old video.js after
+        # the code changes. "no-cache" still uses the cache, it just checks the ETag first.
+        response = await call_next(request)
+        if not request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
     # Must be registered BEFORE the static mount below - Starlette matches routes in
     # registration order, and a root-mounted StaticFiles would otherwise swallow /api/*
     # requests before they ever reach this router.

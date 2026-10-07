@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <title>YT Transcript Companion — Video</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=2">
 </head>
 <body>
   <div class="topbar">
     <input type="text" id="url-input" list="recent-videos" autocomplete="off"
-           placeholder="Paste a YouTube URL or video ID, or pick a recent video..." autofocus>
+           placeholder="Paste a YouTube URL or video ID, or pick a recent video...">
     <datalist id="recent-videos"></datalist>
     <button id="load-btn">Load Video</button>
     <button id="open-transcript-btn" disabled>Open Transcript Window &rarr;</button>
@@ -22,8 +22,8 @@
     <div id="player"></div>
   </div>
 
-  <script src="/js/youtube-utils.js"></script>
-  <script src="/js/video.js"></script>
+  <script src="/js/youtube-utils.js?v=2"></script>
+  <script src="/js/video.js?v=2"></script>
   <!-- YouTube's IFrame Player API loader. It calls window.onYouTubeIframeAPIReady()
        itself once loaded, so that function must already be defined by the time this
        finishes - which is why video.js is loaded above, before this script tag. -->
