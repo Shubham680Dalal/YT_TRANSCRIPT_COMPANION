@@ -9,6 +9,13 @@ transcript:
 sync:
   poll_interval_ms: 300              # how often video.js polls getCurrentTime() to detect seeks
   seek_jump_threshold_seconds: 1.5   # jump beyond normal playback drift (incl. playback rate) = user seek
+  progress_heartbeat_seconds: 10     # how often the video page reports its position while playing
+
+progress:
+  file: "data/watch_progress.xlsx"  # git-ignored; safe to open/edit in Excel (close it so saves can go through)
+  flush_interval_seconds: 300       # while playing, write the sheet every 5 minutes
+  min_seconds: 5                    # positions earlier than this never overwrite a saved spot
+  end_margin_seconds: 10            # this close to the end counts as finished -> next time starts at 0:00
 
 logging:
   level: "INFO"

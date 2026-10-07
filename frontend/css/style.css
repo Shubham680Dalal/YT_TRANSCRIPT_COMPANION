@@ -48,6 +48,51 @@ button {
   cursor: pointer;
 }
 
+.button-link {
+  padding: 0.5rem 1rem;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+
+.button-link:hover {
+  filter: brightness(1.1);
+}
+
+.button-link[hidden] {
+  display: none;
+}
+
+.transcript-topbar {
+  position: sticky;
+  top: 0;
+  justify-content: flex-end;
+  z-index: 1;
+}
+
+button.secondary {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+button[hidden] {
+  display: none;
+}
+
+.shortcut-hint {
+  padding: 0.35rem 1rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.transcript-topbar .shortcut-hint {
+  flex: 1;
+  padding: 0;
+}
+
 button:disabled {
   background: var(--accent-dim);
   cursor: not-allowed;

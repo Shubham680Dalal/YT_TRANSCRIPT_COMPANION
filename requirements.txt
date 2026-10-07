@@ -4,4 +4,6 @@ youtube-transcript-api==1.2.4
 pydantic==2.13.4
 pyyaml==6.0.2
 structlog==25.4.0
+fpdf2==2.8.8
+openpyxl==3.1.5
 pytest==8.3.3

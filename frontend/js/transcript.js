@@ -6,6 +6,30 @@
 const bannerEl = document.getElementById("banner");
 const emptyStateEl = document.getElementById("empty-state");
 const listEl = document.getElementById("transcript-list");
+const downloadPdfBtn = document.getElementById("download-pdf-btn");
+
+// The video window reports titles to the watch-progress store, so reuse that to give
+// the PDF a proper title and filename.
+async function lookupVideoTitle(videoId) {
+  try {
+    const res = await fetch(`/api/progress/${videoId}`);
+    return res.ok ? (await res.json()).title : "";
+  } catch (err) {
+    return "";
+  }
+}
+
+function setDownloadHref(videoId, title) {
+  const url = new URL(`/api/transcript/${videoId}/pdf`, location.origin);
+  if (title) url.searchParams.set("title", title);
+  downloadPdfBtn.href = url.pathname + url.search;
+}
+
+async function showDownloadButton(videoId) {
+  setDownloadHref(videoId, "");
+  downloadPdfBtn.hidden = false;
+  setDownloadHref(videoId, await lookupVideoTitle(videoId));
+}
 
 let cues = []; // [{text, start, end}, ...] grouped segments, sorted by start
 let cueElements = [];
@@ -122,18 +146,47 @@ async function loadTranscript(videoId) {
     const data = await res.json();
     cues = groupCues(data.cues);
     renderCues();
+    showDownloadButton(videoId);
     showEmptyState("Waiting for the video window to start playing...");
   } catch (err) {
     showBanner("Could not reach the local server to fetch the transcript.", "error");
   }
 }
 
+// Same shortcuts as the video window; they're forwarded there since the player lives in it.
+function shortcutFor(event) {
+  if (event.ctrlKey || event.metaKey || event.altKey) return null;
+  switch (event.key) {
+    case " ":
+    case "Spacebar":
+      return "toggle";
+    case "ArrowLeft":
+    case "v":
+    case "V":
+      return "back";
+    case "ArrowRight":
+    case "b":
+    case "B":
+      return "forward";
+    default:
+      return null;
+  }
+}
+
 function connectSync(videoId) {
   const channel = new BroadcastChannel(`yt-sync-${videoId}`);
   channel.onmessage = (event) => {
+    if (event.data && event.data.type === "control") return;
     hideEmptyState();
     updateHighlight(event.data.currentTime);
   };
+
+  document.addEventListener("keydown", (e) => {
+    const action = shortcutFor(e);
+    if (!action) return;
+    e.preventDefault(); // Space would otherwise scroll the transcript
+    channel.postMessage({ type: "control", action });
+  });
 }
 
 function init() {
