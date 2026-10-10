@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>YT Transcript Companion — Video</title>
-  <link rel="stylesheet" href="/css/style.css?v=2">
+  <link rel="stylesheet" href="/css/style.css?v=3">
 </head>
 <body>
   <div class="topbar">
@@ -15,15 +15,15 @@
     <button id="fix-playback-btn" class="secondary" hidden
             title="Player stuck or showing an error? Opens YouTube in a new tab, then reloads the player where you were when you come back.">&#x21bb; Fix playback</button>
   </div>
-  <div class="shortcut-hint">Space: pause &amp; back 5s &middot; &larr; / V: back 5s &middot; &rarr; / B: forward 5s</div>
+  <div class="shortcut-hint">Space: play / pause &middot; &larr; / V: back 5s &middot; &rarr; / B: forward 5s</div>
   <div id="banner" class="banner"></div>
 
   <div id="player-container">
     <div id="player"></div>
   </div>
 
-  <script src="/js/youtube-utils.js?v=2"></script>
-  <script src="/js/video.js?v=2"></script>
+  <script src="/js/youtube-utils.js?v=3"></script>
+  <script src="/js/video.js?v=3"></script>
   <!-- YouTube's IFrame Player API loader. It calls window.onYouTubeIframeAPIReady()
        itself once loaded, so that function must already be defined by the time this
        finishes - which is why video.js is loaded above, before this script tag. -->

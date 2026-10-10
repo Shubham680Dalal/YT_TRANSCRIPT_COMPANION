@@ -173,7 +173,7 @@ function createPlayer(videoId, startSeconds) {
       rel: 0,
       start: Math.floor(startSeconds),
       origin: location.origin, // recommended by YouTube for embeds
-      disablekb: 1, // our own shortcuts below handle the keyboard (incl. Space = pause + back 5s)
+      disablekb: 1, // our own shortcuts below handle the keyboard
     },
     events: {
       onReady: onPlayerReady,
@@ -340,7 +340,7 @@ function startPolling() {
 }
 
 // ---- Keyboard shortcuts ----
-// Space: pause and jump back 5s (or play if paused) · ← / V: back 5s · → / B: forward 5s
+// Space: play / pause · ← / V: back 5s · → / B: forward 5s
 
 function shortcutFor(event) {
   if (event.ctrlKey || event.metaKey || event.altKey) return null;
@@ -368,15 +368,8 @@ function runShortcut(action) {
   const isPlaying = player.getPlayerState() === YT.PlayerState.PLAYING;
 
   if (action === "toggle") {
-    if (isPlaying) {
-      const target = Math.max(0, now - SEEK_STEP_SECONDS);
-      // Pause first: a pause issued mid-seek can get lost while the player buffers.
-      player.pauseVideo();
-      player.seekTo(target, true);
-      broadcastSync("paused", target);
-    } else {
-      player.playVideo();
-    }
+    if (isPlaying) player.pauseVideo();
+    else player.playVideo();
     return;
   }
 
